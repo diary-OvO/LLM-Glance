@@ -25,66 +25,72 @@
     roomy: 122
   };
 
+  const VIEWPORT_FIXED_HEIGHT = 120;
+
   const THEMES = {
     light: {
-      panel: "rgba(247, 248, 251, 0.96)",
-      panelTop: "#f7f8fb",
-      line: "#d8dee9",
-      lineSoft: "rgba(39, 51, 75, 0.10)",
+      panel: "rgba(248, 250, 255, 0.55)",
+      panelTop: "rgba(255, 255, 255, 0.72)",
+      panelGlow: "rgba(96, 165, 250, 0.12)",
+      line: "rgba(216, 222, 233, 0.78)",
+      lineSoft: "rgba(39, 51, 75, 0.06)",
       text: "#172033",
       muted: "#697386",
-      user: "#4f7cff",
-      userSoft: "rgba(79, 124, 255, 0.18)",
-      viewport: "rgba(160, 160, 160, 0.16)",
-      viewportActive: "rgba(160, 160, 160, 0.28)",
-      viewportBorder: "rgba(79, 124, 255, 0.70)",
-      handle: "rgba(79, 124, 255, 0.20)",
-      shadow: "-10px 0 28px rgba(23, 32, 51, 0.12)"
+      user: "#3b6dff",
+      userSoft: "rgba(59, 109, 255, 0.22)",
+      viewport: "rgba(120, 130, 160, 0.18)",
+      viewportActive: "rgba(120, 130, 160, 0.32)",
+      viewportBorder: "rgba(59, 109, 255, 0.70)",
+      handle: "rgba(59, 109, 255, 0.22)",
+      shadow: "-12px 0 32px rgba(23, 32, 51, 0.10), inset 1px 0 0 rgba(255, 255, 255, 0.55)"
     },
     dark: {
-      panel: "rgba(31, 32, 36, 0.98)",
-      panelTop: "#1f2024",
-      line: "#3d414b",
-      lineSoft: "#343842",
+      panel: "rgba(18, 20, 26, 0.58)",
+      panelTop: "rgba(34, 38, 46, 0.70)",
+      panelGlow: "rgba(83, 167, 255, 0.12)",
+      line: "rgba(61, 65, 75, 0.80)",
+      lineSoft: "rgba(255, 255, 255, 0.06)",
       text: "#d9dce3",
       muted: "#8b93a3",
       user: "#82aaff",
-      userSoft: "rgba(130, 170, 255, 0.18)",
-      viewport: "rgba(160, 160, 160, 0.15)",
-      viewportActive: "rgba(160, 160, 160, 0.34)",
-      viewportBorder: "rgba(75, 224, 52, 0.92)",
-      handle: "rgba(83, 167, 255, 0.18)",
-      shadow: "-10px 0 28px rgba(0, 0, 0, 0.28)"
+      userSoft: "rgba(130, 170, 255, 0.24)",
+      viewport: "rgba(180, 195, 220, 0.16)",
+      viewportActive: "rgba(180, 195, 220, 0.32)",
+      viewportBorder: "rgba(130, 170, 255, 0.85)",
+      handle: "rgba(83, 167, 255, 0.22)",
+      shadow: "-12px 0 32px rgba(0, 0, 0, 0.32), inset 1px 0 0 rgba(255, 255, 255, 0.04)"
     },
     highContrast: {
-      panel: "#000000",
-      panelTop: "#000000",
+      panel: "rgba(0, 0, 0, 0.92)",
+      panelTop: "rgba(0, 0, 0, 0.92)",
+      panelGlow: "rgba(0, 162, 255, 0.20)",
       line: "#ffffff",
-      lineSoft: "#ffffff",
+      lineSoft: "rgba(255, 255, 255, 0.18)",
       text: "#ffffff",
       muted: "#ffffff",
       user: "#00a2ff",
-      userSoft: "rgba(0, 162, 255, 0.34)",
+      userSoft: "rgba(0, 162, 255, 0.42)",
       viewport: "rgba(255, 255, 255, 0.28)",
-      viewportActive: "rgba(255, 255, 255, 0.42)",
+      viewportActive: "rgba(255, 255, 255, 0.46)",
       viewportBorder: "#ffffff",
-      handle: "rgba(255, 255, 255, 0.28)",
-      shadow: "none"
+      handle: "rgba(255, 255, 255, 0.32)",
+      shadow: "-8px 0 0 rgba(0, 0, 0, 0.6)"
     },
     soft: {
-      panel: "rgba(251, 251, 247, 0.96)",
-      panelTop: "#fbfbf7",
-      line: "#d8d6cb",
-      lineSoft: "rgba(31, 41, 55, 0.10)",
+      panel: "rgba(251, 248, 240, 0.58)",
+      panelTop: "rgba(255, 253, 246, 0.74)",
+      panelGlow: "rgba(99, 102, 241, 0.10)",
+      line: "rgba(216, 214, 203, 0.78)",
+      lineSoft: "rgba(31, 41, 55, 0.06)",
       text: "#1f2937",
       muted: "#6b7280",
       user: "#4f46e5",
-      userSoft: "rgba(79, 70, 229, 0.18)",
-      viewport: "rgba(120, 120, 120, 0.16)",
-      viewportActive: "rgba(120, 120, 120, 0.28)",
-      viewportBorder: "rgba(79, 70, 229, 0.64)",
-      handle: "rgba(79, 70, 229, 0.18)",
-      shadow: "-10px 0 28px rgba(31, 41, 55, 0.10)"
+      userSoft: "rgba(79, 70, 229, 0.22)",
+      viewport: "rgba(120, 120, 120, 0.18)",
+      viewportActive: "rgba(120, 120, 120, 0.32)",
+      viewportBorder: "rgba(79, 70, 229, 0.68)",
+      handle: "rgba(79, 70, 229, 0.22)",
+      shadow: "-12px 0 32px rgba(31, 41, 55, 0.10), inset 1px 0 0 rgba(255, 255, 255, 0.55)"
     }
   };
 
@@ -714,6 +720,13 @@
             z-index: 2147483600;
             color-scheme: dark;
             font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            transition: bottom 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            :host {
+              transition: none;
+            }
           }
 
           .glance-panel {
@@ -721,8 +734,13 @@
             inset: 0;
             min-width: 0;
             overflow: hidden;
-            border-left: 1px solid var(--llmg-line-soft);
-            background: linear-gradient(180deg, var(--llmg-panel-top), var(--llmg-panel));
+            border-left: 1px solid var(--llmg-line);
+            background:
+              radial-gradient(140% 55% at 100% 0%, var(--llmg-panel-glow), transparent 62%),
+              radial-gradient(140% 60% at 0% 100%, var(--llmg-panel-glow), transparent 64%),
+              linear-gradient(180deg, var(--llmg-panel-top), var(--llmg-panel));
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
             box-shadow: var(--llmg-shadow);
             cursor: pointer;
             touch-action: none;
@@ -735,20 +753,22 @@
             width: 100%;
             height: 100%;
             image-rendering: pixelated;
+            mix-blend-mode: normal;
           }
 
           .viewport {
             position: absolute;
-            left: 0;
-            right: 0;
+            left: 4px;
+            right: 4px;
             top: 0;
             min-height: 2px;
             background: var(--llmg-viewport);
-            border-radius: 5px;
+            border-radius: 6px;
             pointer-events: none;
             box-shadow: inset 0 0 0 1px transparent;
-            backdrop-filter: blur(9px) saturate(1.18);
-            -webkit-backdrop-filter: blur(9px) saturate(1.18);
+            backdrop-filter: blur(6px) saturate(1.2) brightness(1.05);
+            -webkit-backdrop-filter: blur(6px) saturate(1.2) brightness(1.05);
+            transition: background 140ms ease, box-shadow 140ms ease;
           }
 
           .viewport.with-border {
@@ -883,6 +903,7 @@
       const root = this.host.style;
       root.setProperty("--llmg-panel", this.contextTheme.panel);
       root.setProperty("--llmg-panel-top", this.contextTheme.panelTop);
+      root.setProperty("--llmg-panel-glow", this.contextTheme.panelGlow);
       root.setProperty("--llmg-line", this.contextTheme.line);
       root.setProperty("--llmg-line-soft", this.contextTheme.lineSoft);
       root.setProperty("--llmg-text", this.contextTheme.text);
@@ -1046,13 +1067,13 @@
 
     calculatePanelBounds(width) {
       const topPadding = 0;
-      const bottomPadding = 0;
+      const growthBottom = this.calculateGrowthBottom();
 
       if (isDocumentScroller(this.scrollTarget)) {
         const scrollbarGutter = this.getScrollbarGutter(this.scrollTarget);
         return {
           top: topPadding,
-          bottom: bottomPadding,
+          bottom: growthBottom,
           left: null,
           right: scrollbarGutter,
           needsReservation: true
@@ -1062,12 +1083,13 @@
       const rect = this.scrollTarget.getBoundingClientRect();
       const top = clamp(Math.round(rect.top), 0, Math.max(0, window.innerHeight - 160));
       const bottom = clamp(Math.round(window.innerHeight - rect.bottom), 0, Math.max(0, window.innerHeight - top - 160));
+      const effectiveBottom = Math.max(bottom, growthBottom);
       const hasReservation = this.layoutReservation && this.layoutReservation.target === this.scrollTarget;
 
       if (rect.right + width <= window.innerWidth) {
         return {
           top,
-          bottom,
+          bottom: effectiveBottom,
           left: Math.round(rect.right),
           right: null,
           needsReservation: Boolean(hasReservation)
@@ -1076,11 +1098,26 @@
 
       return {
         top,
-        bottom,
+        bottom: effectiveBottom,
         left: null,
         right: 0,
         needsReservation: true
       };
+    }
+
+    calculateGrowthBottom() {
+      const vh = window.innerHeight;
+      const minHeight = Math.max(180, Math.round(vh / 3));
+      const maxHeight = vh;
+      const scrollHeight = getScrollHeight(this.scrollTarget);
+      const clientHeight = getClientHeight(this.scrollTarget);
+      const contentRatio = scrollHeight / Math.max(1, clientHeight);
+      const blockCount = this.userBlocks.length;
+      const overflowProgress = clamp((contentRatio - 1) / 3, 0, 1);
+      const blockProgress = clamp(blockCount / 8, 0, 1);
+      const progress = Math.max(overflowProgress, blockProgress);
+      const targetHeight = minHeight + (maxHeight - minHeight) * progress;
+      return Math.round(vh - targetHeight);
     }
 
     getScrollbarGutter(target) {
@@ -1154,33 +1191,21 @@
       const scrollHeight = Math.max(getScrollHeight(this.scrollTarget), 1);
       const visibleHeight = Math.max(getClientHeight(this.scrollTarget), 1);
       const scrollTop = getScrollTop(this.scrollTarget);
-      const preferredScale = 0.085;
-      const fitScale = panelHeight / scrollHeight;
+      const maxScroll = Math.max(0, scrollHeight - visibleHeight);
 
-      this.scale = clamp(Math.max(preferredScale, fitScale), 0.035, 0.18);
-      this.documentHeight = Math.max(1, Math.round(scrollHeight * this.scale));
-      this.drawHeight = Math.min(panelHeight, this.documentHeight);
-      this.viewportHeight = clamp(Math.round(visibleHeight * this.scale), 2, Math.min(this.documentHeight, this.drawHeight));
-      this.viewportStart = clamp(Math.round(scrollTop * this.scale), 0, Math.max(0, this.documentHeight - this.viewportHeight));
+      this.drawHeight = panelHeight;
+      this.viewportHeight = Math.min(VIEWPORT_FIXED_HEIGHT, panelHeight);
 
-      const maxViewportStart = Math.max(0, this.documentHeight - this.viewportHeight);
-      if (this.drawHeight < this.documentHeight && this.viewportHeight > 0 && maxViewportStart > 0) {
-        const maxVisibleStart = Math.max(0, this.documentHeight - this.drawHeight);
-        const preferredVisibleStart = Math.round(this.viewportStart / maxViewportStart * maxVisibleStart);
-        const minVisibleStart = Math.max(0, this.viewportStart + this.viewportHeight - this.drawHeight);
-        const maxVisibleStartForViewport = Math.min(this.viewportStart, maxVisibleStart);
-        this.visibleStart = clamp(
-          preferredVisibleStart,
-          Math.min(minVisibleStart, maxVisibleStartForViewport),
-          maxVisibleStartForViewport
-        );
-        this.visibleEnd = Math.min(this.visibleStart + this.drawHeight, this.documentHeight);
-      } else {
-        this.visibleStart = 0;
-        this.visibleEnd = this.drawHeight;
-      }
+      const maxViewportTop = Math.max(0, panelHeight - this.viewportHeight);
+      const scrollRatio = maxScroll > 0 ? clamp(scrollTop / maxScroll, 0, 1) : 0;
+      this.viewportStart = Math.round(scrollRatio * maxViewportTop);
 
-      return { scrollHeight, visibleHeight, scrollTop, panelWidth, panelHeight };
+      this.scale = panelHeight / scrollHeight;
+      this.documentHeight = panelHeight;
+      this.visibleStart = 0;
+      this.visibleEnd = panelHeight;
+
+      return { scrollHeight, visibleHeight, scrollTop, panelWidth, panelHeight, maxScroll, scrollRatio };
     }
 
     draw() {
@@ -1218,14 +1243,10 @@
     }
 
     paintPanelBackground(ctx, width, height) {
-      ctx.fillStyle = this.contextTheme.panelTop;
-      ctx.fillRect(0, 0, width, height);
       ctx.fillStyle = this.contextTheme.lineSoft;
-      for (let y = 0; y < height; y += 20) {
-        ctx.fillRect(0, y, width, 1);
+      for (let y = 40; y < height; y += 40) {
+        ctx.fillRect(8, y, width - 16, 1);
       }
-      ctx.fillStyle = this.contextTheme.line;
-      ctx.fillRect(0, 0, 1, height);
     }
 
     paintUserBlocks(ctx, width) {
@@ -1266,8 +1287,7 @@
     }
 
     syncViewportElement() {
-      const top = clamp(this.viewportStart - this.visibleStart, 0, Math.max(0, this.drawHeight - this.viewportHeight));
-      this.viewport.style.top = `${top}px`;
+      this.viewport.style.top = `${this.viewportStart}px`;
       this.viewport.style.height = `${Math.max(2, this.viewportHeight)}px`;
     }
 
@@ -1301,7 +1321,7 @@
       }
 
       const y = event.clientY - this.panel.getBoundingClientRect().top;
-      const viewportTop = this.viewportStart - this.visibleStart;
+      const viewportTop = this.viewportStart;
       const insideViewport = y >= viewportTop && y <= viewportTop + this.viewportHeight;
       this.draggingViewport = true;
       this.panel.classList.add("dragging");
@@ -1312,7 +1332,7 @@
       } else {
         this.jumpToPanelY(y);
         this.dragStartY = y;
-        this.dragStartDelta = this.viewportStart - this.visibleStart;
+        this.dragStartDelta = this.viewportStart;
       }
 
       event.preventDefault();
@@ -1332,13 +1352,11 @@
       }
 
       const y = event.clientY - this.panel.getBoundingClientRect().top;
-      const delta = this.dragStartDelta + (y - this.dragStartY);
-      const maxViewportStart = Math.max(0, this.documentHeight - this.viewportHeight);
-      const movableHeight = Math.max(0, this.drawHeight - this.viewportHeight);
-      const newPos = maxViewportStart === 0 || movableHeight === 0
-        ? Math.max(0, delta)
-        : clamp(delta * maxViewportStart / movableHeight, 0, maxViewportStart);
-      scrollToPosition(this.scrollTarget, newPos / this.scale, false);
+      const newViewportTop = this.dragStartDelta + (y - this.dragStartY);
+      const maxViewportTop = Math.max(0, this.drawHeight - this.viewportHeight);
+      const ratio = maxViewportTop > 0 ? clamp(newViewportTop / maxViewportTop, 0, 1) : 0;
+      const maxScroll = Math.max(0, getScrollHeight(this.scrollTarget) - getClientHeight(this.scrollTarget));
+      scrollToPosition(this.scrollTarget, ratio * maxScroll, false);
       this.draw();
     }
 
@@ -1355,9 +1373,12 @@
     }
 
     jumpToPanelY(y) {
-      const docY = clamp(y + this.visibleStart, 0, this.documentHeight);
-      const targetTop = Math.max(0, docY / this.scale - getClientHeight(this.scrollTarget) / 2);
-      scrollToPosition(this.scrollTarget, targetTop, true);
+      const panelHeight = this.drawHeight;
+      const maxViewportTop = Math.max(0, panelHeight - this.viewportHeight);
+      const targetViewportTop = clamp(y - this.viewportHeight / 2, 0, maxViewportTop);
+      const ratio = maxViewportTop > 0 ? targetViewportTop / maxViewportTop : 0;
+      const maxScroll = Math.max(0, getScrollHeight(this.scrollTarget) - getClientHeight(this.scrollTarget));
+      scrollToPosition(this.scrollTarget, ratio * maxScroll, true);
     }
 
     handleWheel(event) {
