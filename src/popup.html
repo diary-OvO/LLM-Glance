@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LLM Glance</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <div>
+          <h1>LLM Glance</h1>
+          <p id="statusText">Checking this tab...</p>
+        </div>
+        <span id="statusDot" class="status-dot" aria-hidden="true"></span>
+      </header>
+
+      <section class="panel" aria-label="Glance settings">
+        <label class="switch-row">
+          <span>
+            <strong>Enable on page</strong>
+            <small>Show the ChatGPT Glance panel.</small>
+          </span>
+          <input id="enabled" type="checkbox" role="switch">
+        </label>
+
+        <label class="field">
+          <span>Color scheme</span>
+          <select id="theme">
+            <option value="auto">Auto</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="highContrast">High contrast</option>
+            <option value="soft">Soft</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Density</span>
+          <select id="density">
+            <option value="compact">Compact</option>
+            <option value="comfortable">Comfortable</option>
+            <option value="roomy">Roomy</option>
+          </select>
+        </label>
+
+        <label class="switch-row quiet">
+          <span>
+            <strong>Debug logs</strong>
+            <small>Print detailed startup diagnostics in DevTools.</small>
+          </span>
+          <input id="debug" type="checkbox" role="switch">
+        </label>
+      </section>
+
+      <footer class="actions">
+        <button id="refresh" type="button">Refresh map</button>
+        <button id="copyDebug" type="button">Copy debug</button>
+        <button id="togglePage" class="primary" type="button">Toggle rail</button>
+      </footer>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

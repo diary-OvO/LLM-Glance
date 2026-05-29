@@ -1,0 +1,10 @@
+#llm-glance-root {
+  color-scheme: light dark;
+}
+
+[data-llmg-active-message="true"] {
+  outline: 2px solid rgba(47, 111, 237, 0.38) !important;
+  outline-offset: 4px !important;
+  border-radius: 10px !important;
+  transition: outline-color 140ms ease !important;
+}
