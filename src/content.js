@@ -1067,9 +1067,9 @@
 
     calculatePanelBounds(width) {
       const topPadding = 0;
-      const growthBottom = this.calculateGrowthBottom();
 
       if (isDocumentScroller(this.scrollTarget)) {
+        const growthBottom = this.calculateGrowthBottom(topPadding);
         const scrollbarGutter = this.getScrollbarGutter(this.scrollTarget);
         return {
           top: topPadding,
@@ -1083,6 +1083,7 @@
       const rect = this.scrollTarget.getBoundingClientRect();
       const top = clamp(Math.round(rect.top), 0, Math.max(0, window.innerHeight - 160));
       const bottom = clamp(Math.round(window.innerHeight - rect.bottom), 0, Math.max(0, window.innerHeight - top - 160));
+      const growthBottom = this.calculateGrowthBottom(top);
       const effectiveBottom = Math.max(bottom, growthBottom);
       const hasReservation = this.layoutReservation && this.layoutReservation.target === this.scrollTarget;
 
@@ -1105,19 +1106,17 @@
       };
     }
 
-    calculateGrowthBottom() {
+    calculateGrowthBottom(topOffset = 0) {
       const vh = window.innerHeight;
-      const minHeight = Math.max(180, Math.round(vh / 3));
-      const maxHeight = vh;
+      const availableHeight = Math.max(1, vh - topOffset);
+      const maxHeight = Math.max(1, Math.min(getClientHeight(this.scrollTarget), availableHeight));
+      const minHeight = Math.min(VIEWPORT_FIXED_HEIGHT, maxHeight);
       const scrollHeight = getScrollHeight(this.scrollTarget);
       const clientHeight = getClientHeight(this.scrollTarget);
-      const contentRatio = scrollHeight / Math.max(1, clientHeight);
-      const blockCount = this.userBlocks.length;
-      const overflowProgress = clamp((contentRatio - 1) / 3, 0, 1);
-      const blockProgress = clamp(blockCount / 8, 0, 1);
-      const progress = Math.max(overflowProgress, blockProgress);
-      const targetHeight = minHeight + (maxHeight - minHeight) * progress;
-      return Math.round(vh - targetHeight);
+      const overflowDistance = Math.max(0, scrollHeight - clientHeight);
+      const growthProgress = clamp(overflowDistance / (Math.max(1, clientHeight) * 3), 0, 1);
+      const targetHeight = minHeight + (maxHeight - minHeight) * growthProgress;
+      return Math.max(0, Math.round(vh - topOffset - targetHeight));
     }
 
     getScrollbarGutter(target) {

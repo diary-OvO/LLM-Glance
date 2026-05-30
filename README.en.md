@@ -55,7 +55,7 @@ ChatGPT assistant replies can be very long and may include tables, code blocks, 
 - User-message-only block rendering based on `data-message-author-role="user"`.
 - Canvas rendering to avoid heavy DOM updates.
 - Shadow DOM isolation to reduce style conflicts with ChatGPT.
-- Viewport overlay calculated from scroll height and visible height.
+- Fixed-height viewport overlay that moves with scrolling while the Glance panel grows with conversation length.
 - Click, drag, wheel, and keyboard navigation.
 - Automatic width adjustment based on density and user message count.
 - Scroll container detection tuned for ChatGPT.
