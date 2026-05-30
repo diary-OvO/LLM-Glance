@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>LLM Glance — Interactive Preview</title>
+	<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+	<div class="atmosphere" aria-hidden="true">
+		<div class="blob blob-1"></div>
+		<div class="blob blob-2"></div>
+		<div class="blob blob-3"></div>
+	</div>
+
+	<main class="app-shell" aria-label="LLM Glance interactive preview">
+		<header class="top-bar">
+			<div class="brand">
+				<span class="brand-icon" aria-hidden="true"></span>
+				<strong>LLM Glance</strong>
+				<span class="brand-sub">Interactive Preview</span>
+			</div>
+			<nav class="toolbar" aria-label="Demo controls">
+				<label class="control">
+					<span>Theme</span>
+					<select id="themeSelect">
+						<option value="dark">Dark</option>
+						<option value="light">Light</option>
+						<option value="soft">Soft</option>
+					</select>
+				</label>
+				<label class="control">
+					<span>Density</span>
+					<select id="densitySelect">
+						<option value="compact">Compact</option>
+						<option value="comfortable" selected>Comfortable</option>
+						<option value="roomy">Roomy</option>
+					</select>
+				</label>
+				<button id="lensToggle" class="tool-button" type="button" aria-pressed="true">Lens</button>
+				<button id="marksToggle" class="tool-button" type="button" aria-pressed="true">Marks</button>
+				<button id="languageToggle" class="tool-button" type="button">中文</button>
+				<button id="addMessages" class="tool-button" type="button">+ Add Messages</button>
+				<button id="resetConvo" class="tool-button" type="button">Reset</button>
+			</nav>
+		</header>
+
+		<section class="workspace">
+			<aside class="sidebar" aria-label="Conversation list">
+				<div class="sidebar-heading">Conversations</div>
+				<ul class="convo-list">
+					<li class="active">LLM Glance 设计讨论</li>
+					<li>CodeGlance 功能对比</li>
+					<li>浏览器扩展开发笔记</li>
+					<li>UI 透明度方案</li>
+					<li>Minimap 滚动同步</li>
+				</ul>
+			</aside>
+
+			<section class="chat-frame">
+				<div class="chat-header">
+					<strong>LLM Glance 设计讨论</strong>
+					<span id="messageCount">4 messages</span>
+				</div>
+
+				<div class="chat-body" id="chatBody">
+					<div class="chat-scroll" id="chatScroll">
+						<!-- Messages injected by JS -->
+					</div>
+				</div>
+
+				<div class="composer" aria-label="Message composer">
+					<span class="composer-placeholder">Send a message...</span>
+				</div>
+			</section>
+
+			<aside class="glance-track" id="glanceTrack" tabindex="0" aria-label="LLM Glance minimap" role="slider" aria-orientation="vertical">
+				<canvas id="glanceCanvas"></canvas>
+				<div class="glance-viewport" id="glanceViewport"></div>
+				<div class="active-pulse" id="activePulse">
+					<span class="bar"></span>
+					<span class="bar"></span>
+					<span class="bar"></span>
+				</div>
+			</aside>
+		</section>
+	</main>
+
+	<div class="message-lens" id="messageLens" role="tooltip" aria-hidden="true">
+		<div class="lens-title" id="lensTitle"></div>
+		<p id="lensText"></p>
+	</div>
+
+	<script src="demo.js"></script>
+</body>
+</html>
