@@ -711,6 +711,13 @@
       this.mountedAt = performance.now();
       this.scrollListenerTarget = null;
       this.layoutReservation = null;
+      this.guideReservations = new Map();
+      this.guideOffset = 0;
+      this.guideObserver = null;
+      this.lastGuideScan = {
+        candidateCount: 0,
+        matchedCount: 0
+      };
       this.modelStatus = "initializing";
       this.lastError = "";
       this.scanStats = {
@@ -740,6 +747,7 @@
       this.resizeHandle = this.shadow.querySelector(".resize-handle");
 
       this.bindEvents();
+      this.observeGuides();
       this.scrollTarget = this.adapter.getScrollContainer();
       logger.log("scroll_container_detected", {
         scrollTarget: getScrollTargetInfo(this.scrollTarget)
@@ -973,6 +981,7 @@
         this.modelStatus = "disabled";
         this.hideLens();
         this.clearLayoutReservation();
+        this.clearGuideAvoidance();
         this.syncDebugAttributes();
         if (persist) {
           setToStorage(this.settings);
@@ -1117,6 +1126,7 @@
       this.panelWidth = this.customWidth || this.calculateWidth();
       const bounds = this.calculatePanelBounds(this.panelWidth);
       this.reserveLayoutSpace(this.panelWidth, bounds);
+      this.syncGuideAvoidance(this.panelWidth, bounds);
       this.host.style.setProperty("--llmg-width", `${this.panelWidth}px`);
       this.host.style.setProperty("--llmg-top", `${bounds.top}px`);
       this.host.style.setProperty("--llmg-bottom", `${bounds.bottom}px`);
@@ -1170,7 +1180,10 @@
           documentHeight: Math.round(this.documentHeight),
           drawHeight: Math.round(this.drawHeight),
           visibleStart: Math.round(this.visibleStart),
-          visibleEnd: Math.round(this.visibleEnd)
+          visibleEnd: Math.round(this.visibleEnd),
+          guideOffset: Math.round(this.guideOffset),
+          guideCount: this.guideReservations.size,
+          guideScan: this.lastGuideScan
         }
       };
     }
@@ -1290,6 +1303,163 @@
       target.style.marginInlineEnd = marginInlineEnd;
       target.style.boxSizing = boxSizing;
       this.layoutReservation = null;
+    }
+
+    syncGuideAvoidance(width, bounds) {
+      const offset = this.getGuideAvoidanceOffset(width, bounds);
+      this.guideOffset = offset;
+
+      if (offset <= 0) {
+        this.clearGuideAvoidance();
+        return;
+      }
+
+      const guides = this.findChatGPTGuideElements();
+      const activeGuides = new Set(guides);
+      for (const element of Array.from(this.guideReservations.keys())) {
+        if (!activeGuides.has(element)) {
+          this.clearGuideElement(element);
+        }
+      }
+
+      for (const guide of guides) {
+        this.applyGuideOffset(guide, offset);
+      }
+    }
+
+    getGuideAvoidanceOffset(width, bounds) {
+      if (!this.settings.enabled || !bounds) {
+        return 0;
+      }
+
+      if (bounds.right !== null) {
+        return Math.max(0, Math.round(width + (bounds.right || 0)));
+      }
+
+      if (bounds.left !== null) {
+        return Math.max(0, Math.round(width));
+      }
+
+      return 0;
+    }
+
+    findChatGPTGuideElements() {
+      const roots = new Set();
+      const probes = [
+        ...document.querySelectorAll(".no-scrollbar"),
+        ...document.querySelectorAll("[data-toc-active]"),
+        ...document.querySelectorAll(".popover")
+      ];
+
+      for (const probe of probes) {
+        const root = this.findGuideRoot(probe);
+        if (root) {
+          roots.add(root);
+        }
+      }
+
+      document.querySelectorAll("div.relative.flex.items-start").forEach((element) => roots.add(element));
+
+      const guides = Array.from(roots).filter((element) => this.isChatGPTGuideElement(element));
+      this.lastGuideScan = {
+        candidateCount: roots.size,
+        matchedCount: guides.length
+      };
+      return guides;
+    }
+
+    findGuideRoot(node) {
+      let current = node instanceof Element ? node : null;
+      for (let depth = 0; current && depth < 8; depth += 1) {
+        if (
+          current.tagName === "DIV"
+          && current.classList.contains("relative")
+          && current.classList.contains("flex")
+          && current.classList.contains("items-start")
+        ) {
+          return current;
+        }
+        current = current.parentElement;
+      }
+
+      return null;
+    }
+
+    isChatGPTGuideElement(element) {
+      const rail = element.querySelector(".no-scrollbar");
+      if (!rail) {
+        return false;
+      }
+
+      const railClass = `${rail.className || ""}`;
+      const hasTocRailShape = railClass.includes("max-h-[50lvh]")
+        || railClass.includes("w-9")
+        || railClass.includes("overflow-y-auto");
+      if (!hasTocRailShape) {
+        return false;
+      }
+
+      const labeledButtons = rail.querySelectorAll("button[aria-label]");
+      return labeledButtons.length >= 3;
+    }
+
+    observeGuides() {
+      if (this.guideObserver || !document.body) {
+        return;
+      }
+
+      const handleGuideMutation = debounce(() => {
+        if (!this.settings.enabled) {
+          return;
+        }
+
+        this.updateDimensions();
+        this.draw();
+      }, 160);
+
+      this.guideObserver = new MutationObserver(handleGuideMutation);
+      this.guideObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class", "data-toc-active"]
+      });
+    }
+
+    applyGuideOffset(element, offset) {
+      if (!this.guideReservations.has(element)) {
+        this.guideReservations.set(element, {
+          translate: element.style.getPropertyValue("translate"),
+          translatePriority: element.style.getPropertyPriority("translate")
+        });
+      }
+
+      const direction = window.getComputedStyle(document.documentElement).direction;
+      const signedOffset = direction === "rtl" ? offset : -offset;
+      element.style.setProperty("translate", `${signedOffset}px 0`, "important");
+      element.dataset.llmgGuideAvoided = "true";
+    }
+
+    clearGuideElement(element) {
+      const reservation = this.guideReservations.get(element);
+      if (!reservation) {
+        return;
+      }
+
+      if (reservation.translate) {
+        element.style.setProperty("translate", reservation.translate, reservation.translatePriority);
+      } else {
+        element.style.removeProperty("translate");
+      }
+      delete element.dataset.llmgGuideAvoided;
+      this.guideReservations.delete(element);
+    }
+
+    clearGuideAvoidance() {
+      for (const element of Array.from(this.guideReservations.keys())) {
+        this.clearGuideElement(element);
+      }
+      this.guideOffset = 0;
     }
 
     calculateWidth() {
