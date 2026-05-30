@@ -541,6 +541,23 @@
       return blocks;
     }
 
+    getConversationContentHeight(scrollTarget) {
+      const scrollHeight = Math.max(1, getScrollHeight(scrollTarget));
+      const visibleHeight = Math.max(1, getClientHeight(scrollTarget));
+      if (scrollHeight > visibleHeight + 1) {
+        return scrollHeight;
+      }
+
+      const nodes = this.findMessageNodes();
+      let contentBottom = 0;
+      for (const node of nodes) {
+        const box = getRelativeBox(node, scrollTarget);
+        contentBottom = Math.max(contentBottom, box.top + box.height);
+      }
+
+      return Math.max(1, contentBottom || scrollHeight);
+    }
+
     getDebugStats() {
       return {
         ...this.lastScan
@@ -1108,15 +1125,25 @@
 
     calculateGrowthBottom(topOffset = 0) {
       const vh = window.innerHeight;
-      const availableHeight = Math.max(1, vh - topOffset);
-      const maxHeight = Math.max(1, Math.min(getClientHeight(this.scrollTarget), availableHeight));
-      const minHeight = Math.min(VIEWPORT_FIXED_HEIGHT, maxHeight);
-      const scrollHeight = getScrollHeight(this.scrollTarget);
-      const clientHeight = getClientHeight(this.scrollTarget);
-      const overflowDistance = Math.max(0, scrollHeight - clientHeight);
-      const growthProgress = clamp(overflowDistance / (Math.max(1, clientHeight) * 3), 0, 1);
-      const targetHeight = minHeight + (maxHeight - minHeight) * growthProgress;
+      const targetHeight = this.calculateTargetPanelHeight(topOffset);
       return Math.max(0, Math.round(vh - topOffset - targetHeight));
+    }
+
+    calculateTargetPanelHeight(topOffset = 0) {
+      const maxHeight = this.getMaxPanelHeight(topOffset);
+      const visibleHeight = Math.max(getClientHeight(this.scrollTarget), 1);
+      const scrollHeight = getScrollHeight(this.scrollTarget);
+      const contentHeight = this.adapter.getConversationContentHeight
+        ? this.adapter.getConversationContentHeight(this.scrollTarget)
+        : scrollHeight;
+      const scale = VIEWPORT_FIXED_HEIGHT / visibleHeight;
+      const documentHeight = Math.max(1, Math.round(contentHeight * scale));
+      return Math.max(1, Math.min(maxHeight, documentHeight));
+    }
+
+    getMaxPanelHeight(topOffset = 0) {
+      const availableHeight = Math.max(1, window.innerHeight - topOffset);
+      return Math.max(1, Math.min(getClientHeight(this.scrollTarget), availableHeight));
     }
 
     getScrollbarGutter(target) {
@@ -1191,20 +1218,49 @@
       const visibleHeight = Math.max(getClientHeight(this.scrollTarget), 1);
       const scrollTop = getScrollTop(this.scrollTarget);
       const maxScroll = Math.max(0, scrollHeight - visibleHeight);
+      const contentHeight = this.adapter.getConversationContentHeight
+        ? this.adapter.getConversationContentHeight(this.scrollTarget)
+        : scrollHeight;
 
-      this.drawHeight = panelHeight;
-      this.viewportHeight = Math.min(VIEWPORT_FIXED_HEIGHT, panelHeight);
+      this.scale = VIEWPORT_FIXED_HEIGHT / visibleHeight;
+      this.documentHeight = Math.max(1, Math.round(contentHeight * this.scale));
+      this.drawHeight = Math.min(panelHeight, this.documentHeight);
+      this.viewportHeight = clamp(
+        Math.round(visibleHeight * this.scale),
+        0,
+        Math.min(this.documentHeight, this.drawHeight)
+      );
 
-      const maxViewportTop = Math.max(0, panelHeight - this.viewportHeight);
+      this.viewportStart = clamp(
+        Math.round(scrollTop * this.scale),
+        0,
+        Math.max(0, this.documentHeight - this.viewportHeight)
+      );
+
+      this.recomputeVisible();
       const scrollRatio = maxScroll > 0 ? clamp(scrollTop / maxScroll, 0, 1) : 0;
-      this.viewportStart = Math.round(scrollRatio * maxViewportTop);
 
-      this.scale = panelHeight / scrollHeight;
-      this.documentHeight = panelHeight;
+      return { scrollHeight, visibleHeight, scrollTop, panelWidth, panelHeight, maxScroll, scrollRatio, contentHeight };
+    }
+
+    recomputeVisible() {
+      const maxViewportStart = Math.max(0, this.documentHeight - this.viewportHeight);
+      if (this.drawHeight < this.documentHeight && this.viewportHeight > 0 && maxViewportStart > 0) {
+        const maxVisibleStart = Math.max(0, this.documentHeight - this.drawHeight);
+        const preferredVisibleStart = Math.round(this.viewportStart / maxViewportStart * maxVisibleStart);
+        const minVisibleStart = Math.max(0, this.viewportStart + this.viewportHeight - this.drawHeight);
+        const maxVisibleStartForViewport = Math.min(this.viewportStart, maxVisibleStart);
+        this.visibleStart = clamp(
+          preferredVisibleStart,
+          Math.min(minVisibleStart, maxVisibleStartForViewport),
+          maxVisibleStartForViewport
+        );
+        this.visibleEnd = Math.min(this.visibleStart + this.drawHeight, this.documentHeight);
+        return;
+      }
+
       this.visibleStart = 0;
-      this.visibleEnd = panelHeight;
-
-      return { scrollHeight, visibleHeight, scrollTop, panelWidth, panelHeight, maxScroll, scrollRatio };
+      this.visibleEnd = this.drawHeight;
     }
 
     draw() {
@@ -1228,7 +1284,7 @@
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, panelWidth, panelHeight);
         ctx.imageSmoothingEnabled = false;
-        this.paintPanelBackground(ctx, panelWidth, panelHeight);
+        this.paintPanelBackground(ctx, panelWidth, this.drawHeight);
         this.paintUserBlocks(ctx, panelWidth);
         this.syncViewportElement();
         this.syncDebugAttributes();
@@ -1285,8 +1341,16 @@
       return aEnd >= bStart && aStart <= bEnd;
     }
 
+    getViewportPanelTop() {
+      return clamp(
+        this.viewportStart - this.visibleStart,
+        0,
+        Math.max(0, this.drawHeight - this.viewportHeight)
+      );
+    }
+
     syncViewportElement() {
-      this.viewport.style.top = `${this.viewportStart}px`;
+      this.viewport.style.top = `${this.getViewportPanelTop()}px`;
       this.viewport.style.height = `${Math.max(2, this.viewportHeight)}px`;
     }
 
@@ -1320,7 +1384,7 @@
       }
 
       const y = event.clientY - this.panel.getBoundingClientRect().top;
-      const viewportTop = this.viewportStart;
+      const viewportTop = this.getViewportPanelTop();
       const insideViewport = y >= viewportTop && y <= viewportTop + this.viewportHeight;
       this.draggingViewport = true;
       this.panel.classList.add("dragging");
@@ -1331,7 +1395,7 @@
       } else {
         this.jumpToPanelY(y);
         this.dragStartY = y;
-        this.dragStartDelta = this.viewportStart;
+        this.dragStartDelta = this.getViewportPanelTop();
       }
 
       event.preventDefault();
@@ -1352,10 +1416,10 @@
 
       const y = event.clientY - this.panel.getBoundingClientRect().top;
       const newViewportTop = this.dragStartDelta + (y - this.dragStartY);
-      const maxViewportTop = Math.max(0, this.drawHeight - this.viewportHeight);
-      const ratio = maxViewportTop > 0 ? clamp(newViewportTop / maxViewportTop, 0, 1) : 0;
-      const maxScroll = Math.max(0, getScrollHeight(this.scrollTarget) - getClientHeight(this.scrollTarget));
-      scrollToPosition(this.scrollTarget, ratio * maxScroll, false);
+      const movableHeight = Math.max(0, this.drawHeight - this.viewportHeight);
+      const maxViewportStart = Math.max(0, this.documentHeight - this.viewportHeight);
+      const targetViewportStart = clamp(this.visibleStart + clamp(newViewportTop, 0, movableHeight), 0, maxViewportStart);
+      scrollToPosition(this.scrollTarget, targetViewportStart / Math.max(this.scale, 0.0001), false);
       this.draw();
     }
 
@@ -1373,11 +1437,11 @@
 
     jumpToPanelY(y) {
       const panelHeight = this.drawHeight;
-      const maxViewportTop = Math.max(0, panelHeight - this.viewportHeight);
-      const targetViewportTop = clamp(y - this.viewportHeight / 2, 0, maxViewportTop);
-      const ratio = maxViewportTop > 0 ? targetViewportTop / maxViewportTop : 0;
-      const maxScroll = Math.max(0, getScrollHeight(this.scrollTarget) - getClientHeight(this.scrollTarget));
-      scrollToPosition(this.scrollTarget, ratio * maxScroll, true);
+      const movableHeight = Math.max(0, panelHeight - this.viewportHeight);
+      const maxViewportStart = Math.max(0, this.documentHeight - this.viewportHeight);
+      const targetViewportTop = clamp(y - this.viewportHeight / 2, 0, movableHeight);
+      const targetViewportStart = clamp(this.visibleStart + targetViewportTop, 0, maxViewportStart);
+      scrollToPosition(this.scrollTarget, targetViewportStart / Math.max(this.scale, 0.0001), true);
     }
 
     handleWheel(event) {
