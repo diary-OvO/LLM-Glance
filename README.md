@@ -59,9 +59,10 @@ ChatGPT 的助手回复可能非常长，且包含表格、代码块、引用、
 - 点击/拖动/滚轮导航：在 Glance 上交互可同步滚动对话页面。
 - 自动宽度：根据密度和用户消息数量在合理范围内调整 Glance 宽度。
 - 滚动容器识别：优先选择真实可滚动容器，避免把普通 `main` 内容容器误判为滚动容器。
+- Lens 预览：在 Glance 上悬停时显示本地消息摘录，不存储或上传正文。
 - 启动重试：ChatGPT DOM 延迟挂载时，插件会在启动后短时间内主动重试建模。
 - Debug 日志：Console 中输出 `[LLM Glance]` 结构化启动日志，不包含聊天正文。
-- Popup 设置：支持启用状态、配色、密度、Debug logs、刷新、复制 debug 信息。
+- Popup 设置：支持启用状态、配色、密度、Lens、viewport 边框、Debug logs、刷新、复制 debug 信息和中英文切换。
 
 ## 暂不包含
 
@@ -78,8 +79,7 @@ ChatGPT 的助手回复可能非常长，且包含表格、代码块、引用、
 - `src/content.js`：ChatGPT adapter、Glance 模型、Shadow DOM UI、Canvas 渲染、滚动导航、debug 日志。
 - `src/popup.html` / `src/popup.css` / `src/popup.js`：工具栏 popup 设置与调试入口。
 - `src/background.js`：默认设置初始化和快捷键转发。
-- `demo/preview.html`：本地视觉预览页面，不需要登录 ChatGPT。
-- `scripts/verify-preview.cjs`：基于 Playwright 的本地验证脚本。
+- `demo_preview/index.html` / `demo_preview/demo.css` / `demo_preview/demo.js`：本地视觉预览页面，不需要登录 ChatGPT。
 - `temp_demo/`：CodeGlance 风格设计与交互参考。
 - `icons/`：扩展图标。
 
@@ -99,15 +99,18 @@ ChatGPT 的助手回复可能非常长，且包含表格、代码块、引用、
 可以直接打开：
 
 ```text
-D:\ReadboyProject\SelfProject\LLM-Glance\demo\preview.html
+D:\ReadboyProject\SelfProject\LLM-Glance\demo_preview\index.html
 ```
 
-这个页面会直接加载 `src/content.js`，用于验证：
+这个页面用于演示 Glance 的 temp-demo 风格交互，可验证：
 
 - Glance 是否贴在滚动区域右侧。
 - 原滚动条是否保留在 Glance 左边。
 - viewport 是否能表达当前可见区域。
 - 只渲染用户消息是否正确。
+- Lens 是否能在 Glance 外侧显示消息摘录。
+- Marks / viewport 边框开关是否生效。
+- 语言按钮是否能在中英文间切换。
 - 长对话下宽度和比例是否正常。
 
 ## 调试方法
@@ -131,7 +134,7 @@ D:\ReadboyProject\SelfProject\LLM-Glance\demo\preview.html
 
 ChatGPT 页面经常会延迟挂载历史消息，所以看到先 `model_empty`、几秒后 `model_ready` 是正常现象。
 
-Popup 中可以开启 Debug logs 获取更详细刷新日志，也可以点击 Copy debug 复制当前结构化状态。Debug 快照只包含 URL、设置、role 计数、滚动容器、panel 尺寸和错误信息，不包含聊天正文。
+Popup 中可以开启 Lens、切换 viewport 边框、开启 Debug logs 获取更详细刷新日志，也可以点击 Copy debug 复制当前结构化状态。Lens 摘录只在本地临时显示；Debug 快照只包含 URL、设置、role 计数、滚动容器、panel 尺寸和错误信息，不包含聊天正文。
 
 ## 验证命令
 
@@ -139,17 +142,17 @@ Popup 中可以开启 Debug logs 获取更详细刷新日志，也可以点击 C
 node --check src\content.js
 node --check src\popup.js
 node --check src\background.js
-node --check scripts\verify-preview.cjs
-node scripts\verify-preview.cjs
+node --check demo_preview\demo.js
 git diff --check
 ```
 
-`scripts\verify-preview.cjs` 会验证：
+本地预览页重点验证：
 
 - Glance DOM 是否完整。
 - 面板是否贴在滚动容器右侧。
-- assistant-only 场景是否进入 `empty` 状态。
-- 延迟插入用户消息后是否恢复 `ready`。
+- Lens 悬停预览是否跟随鼠标并在离开后隐藏。
+- Marks / viewport 边框开关是否能即时生效。
+- 语言按钮是否切换演示文案。
 - 是否只渲染用户消息。
 - 无预留列场景下，滚动区域是否被收窄，让原滚动条位于 Glance 左边。
 

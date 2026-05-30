@@ -16,6 +16,9 @@
     theme: "dark",
     density: "comfortable",
     widthMode: "auto",
+    lensEnabled: true,
+    viewportBorder: true,
+    locale: "auto",
     debug: false
   };
 
@@ -297,6 +300,9 @@
       theme: raw.theme,
       density: raw.density,
       widthMode: "auto",
+      lensEnabled: raw.lensEnabled !== false,
+      viewportBorder: raw.viewportBorder !== false,
+      locale: raw.locale,
       debug: Boolean(raw.debug)
     };
 
@@ -306,6 +312,10 @@
 
     if (!DENSITY_WIDTH[settings.density]) {
       settings.density = "comfortable";
+    }
+
+    if (!["auto", "en", "zh"].includes(settings.locale)) {
+      settings.locale = "auto";
     }
 
     return settings;
@@ -558,6 +568,21 @@
       return Math.max(1, contentBottom || scrollHeight);
     }
 
+    getMessagePreviews(scrollTarget) {
+      return this.findMessageNodes().map((node, index) => {
+        const box = getRelativeBox(node, scrollTarget);
+        return {
+          id: `llmg-message-${index}-${Math.round(box.top)}`,
+          index: index + 1,
+          role: this.extractRole(node, index),
+          element: node,
+          text: (node.textContent || "").replace(/\s+/g, " ").trim(),
+          top: box.top,
+          height: box.height
+        };
+      }).filter((block) => block.text);
+    }
+
     getDebugStats() {
       return {
         ...this.lastScan
@@ -650,11 +675,15 @@
       this.adapter = adapter;
       this.settings = normalizeSettings(settings);
       this.userBlocks = [];
+      this.messageBlocks = [];
       this.scrollTarget = document.scrollingElement || document.documentElement;
       this.host = null;
       this.shadow = null;
       this.canvas = null;
       this.viewport = null;
+      this.messageLens = null;
+      this.lensTitle = null;
+      this.lensText = null;
       this.panel = null;
       this.resizeHandle = null;
       this.contextTheme = THEMES.dark;
@@ -673,6 +702,7 @@
       this.dragStartDelta = 0;
       this.resizeStartX = 0;
       this.resizeStartWidth = 0;
+      this.activeLensBlockId = "";
       this.scrollRaf = 0;
       this.resizeRaf = 0;
       this.refreshTimer = 0;
@@ -703,6 +733,9 @@
 
       this.canvas = this.shadow.querySelector("canvas");
       this.viewport = this.shadow.querySelector(".viewport");
+      this.messageLens = this.shadow.querySelector(".message-lens");
+      this.lensTitle = this.shadow.querySelector(".lens-title");
+      this.lensText = this.shadow.querySelector(".lens-text");
       this.panel = this.shadow.querySelector(".glance-panel");
       this.resizeHandle = this.shadow.querySelector(".resize-handle");
 
@@ -819,6 +852,49 @@
             outline: 2px solid var(--llmg-viewport-border);
             outline-offset: -2px;
           }
+
+          .message-lens {
+            position: fixed;
+            z-index: 2147483601;
+            width: min(360px, calc(100vw - 32px));
+            max-height: 220px;
+            overflow: hidden;
+            border: 1px solid var(--llmg-line);
+            border-radius: 8px;
+            background: rgba(18, 20, 26, 0.94);
+            color: #f3f6fb;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(4px);
+            transition: opacity 90ms ease, transform 90ms ease;
+          }
+
+          .message-lens.visible {
+            opacity: 1;
+            transform: translateY(0);
+          }
+
+          .lens-title {
+            height: 28px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            border-bottom: 1px solid var(--llmg-line);
+            color: var(--llmg-muted);
+            background: rgba(255, 255, 255, 0.06);
+            font-size: 12px;
+            font-weight: 600;
+          }
+
+          .lens-text {
+            margin: 0;
+            padding: 10px;
+            color: #f3f6fb;
+            font: 12px/1.55 "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+          }
         </style>
 
         <aside class="glance-panel" tabindex="0" aria-label="LLM Glance user chat minimap">
@@ -826,11 +902,17 @@
           <div class="viewport with-border" aria-hidden="true"></div>
           <div class="resize-handle" aria-hidden="true"></div>
         </aside>
+        <div class="message-lens" role="tooltip" aria-hidden="true">
+          <div class="lens-title"></div>
+          <p class="lens-text"></p>
+        </div>
       `;
     }
 
     bindEvents() {
       this.panel.addEventListener("pointerdown", (event) => this.handlePanelDown(event));
+      this.panel.addEventListener("pointermove", (event) => this.handlePanelMove(event));
+      this.panel.addEventListener("pointerleave", () => this.hideLens());
       this.panel.addEventListener("wheel", (event) => this.handleWheel(event), { passive: false });
       this.panel.addEventListener("keydown", (event) => this.handleKeydown(event));
       window.addEventListener("pointermove", (event) => this.handleWindowMove(event), true);
@@ -889,6 +971,7 @@
       this.host.style.display = this.settings.enabled ? "" : "none";
       if (!this.settings.enabled) {
         this.modelStatus = "disabled";
+        this.hideLens();
         this.clearLayoutReservation();
         this.syncDebugAttributes();
         if (persist) {
@@ -897,6 +980,10 @@
         return;
       }
       this.updateTheme();
+      this.syncViewportBorder();
+      if (!this.settings.lensEnabled) {
+        this.hideLens();
+      }
       this.updateDimensions();
 
       if (persist) {
@@ -931,6 +1018,12 @@
       root.setProperty("--llmg-shadow", this.contextTheme.shadow);
     }
 
+    syncViewportBorder() {
+      if (this.viewport) {
+        this.viewport.classList.toggle("with-border", this.settings.viewportBorder);
+      }
+    }
+
     scheduleRefresh(delay) {
       window.clearTimeout(this.refreshTimer);
       this.refreshTimer = window.setTimeout(() => this.refreshModel(), delay);
@@ -963,6 +1056,9 @@
         });
         this.updateScrollListener();
         this.userBlocks = this.adapter.getUserMessages(this.scrollTarget);
+        this.messageBlocks = this.adapter.getMessagePreviews
+          ? this.adapter.getMessagePreviews(this.scrollTarget)
+          : [];
         this.scanStats = this.adapter.getDebugStats();
         this.modelStatus = this.userBlocks.length ? "ready" : "empty";
         this.lastError = "";
@@ -1358,6 +1454,8 @@
         return;
       }
 
+      this.hideLens();
+
       if (event.target === this.resizeHandle) {
         this.resizing = true;
         this.resizeStartX = event.clientX;
@@ -1383,6 +1481,114 @@
       }
 
       event.preventDefault();
+    }
+
+    handlePanelMove(event) {
+      if (!this.settings.lensEnabled || this.draggingViewport || this.resizing || !this.messageBlocks.length) {
+        this.hideLens();
+        return;
+      }
+
+      const rect = this.panel.getBoundingClientRect();
+      const y = event.clientY - rect.top;
+      if (y < 0 || y > this.drawHeight) {
+        this.hideLens();
+        return;
+      }
+
+      const sourceY = (y + this.visibleStart) / Math.max(this.scale, 0.0001);
+      const block = this.findLensBlock(sourceY);
+      if (!block) {
+        this.hideLens();
+        return;
+      }
+
+      this.showLens(event.clientX, event.clientY, block);
+    }
+
+    findLensBlock(sourceY) {
+      let best = null;
+      let bestDistance = Infinity;
+
+      for (const block of this.messageBlocks) {
+        const top = block.top;
+        const bottom = block.top + block.height;
+        if (sourceY >= top && sourceY <= bottom) {
+          return block;
+        }
+
+        const distance = Math.min(Math.abs(sourceY - top), Math.abs(sourceY - bottom));
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = block;
+        }
+      }
+
+      return bestDistance <= Math.max(80, getClientHeight(this.scrollTarget) * 0.12) ? best : null;
+    }
+
+    showLens(clientX, clientY, block) {
+      if (!this.messageLens || !this.lensTitle || !this.lensText) {
+        return;
+      }
+
+      const locale = this.resolveLocale();
+      const roleLabel = this.getRoleLabel(block.role, locale);
+      this.lensTitle.textContent = locale === "zh"
+        ? `${roleLabel === "消息" ? "消息" : `${roleLabel}消息`} ${block.index}`
+        : `${roleLabel === "Message" ? "Message" : `${roleLabel} message`} ${block.index}`;
+      this.lensText.textContent = this.truncateText(block.text, 240);
+      this.messageLens.classList.add("visible");
+      this.messageLens.setAttribute("aria-hidden", "false");
+
+      const lensRect = this.messageLens.getBoundingClientRect();
+      const panelRect = this.panel.getBoundingClientRect();
+      let left = panelRect.left - lensRect.width - 10;
+      let top = clientY - 68;
+      left = clamp(left, 16, window.innerWidth - lensRect.width - 16);
+      top = clamp(top, 16, window.innerHeight - lensRect.height - 16);
+      this.messageLens.style.left = `${left}px`;
+      this.messageLens.style.top = `${top}px`;
+      this.activeLensBlockId = block.id;
+    }
+
+    hideLens() {
+      if (!this.messageLens) {
+        return;
+      }
+
+      this.activeLensBlockId = "";
+      this.messageLens.classList.remove("visible");
+      this.messageLens.setAttribute("aria-hidden", "true");
+    }
+
+    resolveLocale() {
+      if (this.settings.locale === "zh" || this.settings.locale === "en") {
+        return this.settings.locale;
+      }
+
+      return /^zh\b/i.test(navigator.language || "") ? "zh" : "en";
+    }
+
+    getRoleLabel(role, locale) {
+      if (locale === "zh") {
+        if (role === "user") return "用户";
+        if (role === "assistant") return "助手";
+        return "消息";
+      }
+
+      if (role === "user") return "User";
+      if (role === "assistant") return "Assistant";
+      return "Message";
+    }
+
+    truncateText(text, maxLength) {
+      const clean = `${text || ""}`.replace(/\s+/g, " ").trim();
+      if (clean.length <= maxLength) {
+        return clean;
+      }
+
+      return `${clean.slice(0, Math.max(0, maxLength - 1))}…`;
     }
 
     handleWindowMove(event) {
@@ -1417,6 +1623,8 @@
         this.draggingViewport = false;
         this.panel.classList.remove("dragging");
       }
+
+      this.hideLens();
     }
 
     jumpToPanelY(y) {

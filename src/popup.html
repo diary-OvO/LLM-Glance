@@ -10,54 +10,73 @@
     <main class="shell">
       <header class="header">
         <div>
-          <h1>LLM Glance</h1>
+          <h1 id="title">LLM Glance</h1>
           <p id="statusText">Checking this tab...</p>
         </div>
-        <span id="statusDot" class="status-dot" aria-hidden="true"></span>
+        <div class="header-actions">
+          <button id="languageToggle" class="ghost" type="button">中文</button>
+          <span id="statusDot" class="status-dot" aria-hidden="true"></span>
+        </div>
       </header>
 
-      <section class="panel" aria-label="Glance settings">
+      <section id="settingsPanel" class="panel" aria-label="Glance settings">
         <label class="switch-row">
           <span>
-            <strong>Enable on page</strong>
-            <small>Show the ChatGPT Glance panel.</small>
+            <strong data-i18n="enableTitle">Enable on page</strong>
+            <small data-i18n="enableHelp">Show the ChatGPT Glance panel.</small>
           </span>
           <input id="enabled" type="checkbox" role="switch">
         </label>
 
         <label class="field">
-          <span>Color scheme</span>
+          <span data-i18n="themeLabel">Color scheme</span>
           <select id="theme">
-            <option value="auto">Auto</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-            <option value="highContrast">High contrast</option>
-            <option value="soft">Soft</option>
+            <option value="auto" data-i18n="themeAuto">Auto</option>
+            <option value="light" data-i18n="themeLight">Light</option>
+            <option value="dark" data-i18n="themeDark">Dark</option>
+            <option value="highContrast" data-i18n="themeHighContrast">High contrast</option>
+            <option value="soft" data-i18n="themeSoft">Soft</option>
           </select>
         </label>
 
         <label class="field">
-          <span>Density</span>
+          <span data-i18n="densityLabel">Density</span>
           <select id="density">
-            <option value="compact">Compact</option>
-            <option value="comfortable">Comfortable</option>
-            <option value="roomy">Roomy</option>
+            <option value="compact" data-i18n="densityCompact">Compact</option>
+            <option value="comfortable" data-i18n="densityComfortable">Comfortable</option>
+            <option value="roomy" data-i18n="densityRoomy">Roomy</option>
           </select>
         </label>
 
         <label class="switch-row quiet">
           <span>
-            <strong>Debug logs</strong>
-            <small>Print detailed startup diagnostics in DevTools.</small>
+            <strong data-i18n="lensTitle">Lens preview</strong>
+            <small data-i18n="lensHelp">Show a local message excerpt on hover.</small>
+          </span>
+          <input id="lensEnabled" type="checkbox" role="switch">
+        </label>
+
+        <label class="switch-row quiet">
+          <span>
+            <strong data-i18n="borderTitle">Viewport border</strong>
+            <small data-i18n="borderHelp">Draw the current-view outline.</small>
+          </span>
+          <input id="viewportBorder" type="checkbox" role="switch">
+        </label>
+
+        <label class="switch-row quiet">
+          <span>
+            <strong data-i18n="debugTitle">Debug logs</strong>
+            <small data-i18n="debugHelp">Print detailed startup diagnostics in DevTools.</small>
           </span>
           <input id="debug" type="checkbox" role="switch">
         </label>
       </section>
 
       <footer class="actions">
-        <button id="refresh" type="button">Refresh map</button>
-        <button id="copyDebug" type="button">Copy debug</button>
-        <button id="togglePage" class="primary" type="button">Toggle rail</button>
+        <button id="refresh" type="button" data-i18n="refresh">Refresh map</button>
+        <button id="copyDebug" type="button" data-i18n="copyDebug">Copy debug</button>
+        <button id="togglePage" class="primary" type="button" data-i18n="toggleRail">Toggle rail</button>
       </footer>
     </main>
 

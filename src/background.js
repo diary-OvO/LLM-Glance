@@ -7,6 +7,9 @@ const DEFAULT_SETTINGS = {
   theme: "dark",
   density: "comfortable",
   widthMode: "auto",
+  lensEnabled: true,
+  viewportBorder: true,
+  locale: "auto",
   debug: false
 };
 

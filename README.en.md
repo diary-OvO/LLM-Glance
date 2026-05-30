@@ -59,9 +59,10 @@ ChatGPT assistant replies can be very long and may include tables, code blocks, 
 - Click, drag, wheel, and keyboard navigation.
 - Automatic width adjustment based on density and user message count.
 - Scroll container detection tuned for ChatGPT.
+- Lens preview on Glance hover with local-only message excerpts.
 - Startup retries for delayed ChatGPT DOM rendering.
 - Structured `[LLM Glance]` console logs without chat text.
-- Popup controls for enable/disable, theme, density, debug logs, refresh, and copy debug.
+- Popup controls for enable/disable, theme, density, Lens, viewport border, debug logs, refresh, copy debug, and English/Chinese switching.
 
 ## Not Included Yet
 
@@ -78,8 +79,7 @@ ChatGPT assistant replies can be very long and may include tables, code blocks, 
 - `src/content.js`: ChatGPT adapter, Glance model, Shadow DOM UI, Canvas renderer, navigation, and debug logs.
 - `src/popup.html` / `src/popup.css` / `src/popup.js`: toolbar popup settings and debug controls.
 - `src/background.js`: default settings and keyboard command bridge.
-- `demo/preview.html`: local visual preview page, no ChatGPT login required.
-- `scripts/verify-preview.cjs`: Playwright-based local verification script.
+- `demo_preview/index.html` / `demo_preview/demo.css` / `demo_preview/demo.js`: local visual preview page, no ChatGPT login required.
 - `temp_demo/`: CodeGlance-style design and interaction reference.
 - `icons/`: extension icons.
 
@@ -99,15 +99,18 @@ Shortcut: `Alt+Shift+G` toggles Glance on the active tab.
 Open:
 
 ```text
-D:\ReadboyProject\SelfProject\LLM-Glance\demo\preview.html
+D:\ReadboyProject\SelfProject\LLM-Glance\demo_preview\index.html
 ```
 
-The preview loads `src/content.js` directly and is useful for checking:
+The preview demonstrates the temp-demo-style Glance interactions and is useful for checking:
 
 - Whether Glance is placed to the right of the scroll area.
 - Whether the native scrollbar remains to the left of Glance.
 - Whether the viewport overlay maps the visible area correctly.
 - Whether user-only rendering works.
+- Whether Lens appears outside Glance on hover and hides on leave.
+- Whether the Marks / viewport border toggle works.
+- Whether the language button switches the demo labels.
 - Whether width and scaling behave correctly in long conversations.
 
 ## Debugging
@@ -131,7 +134,7 @@ Important events:
 
 Seeing `model_empty` first and `model_ready` a few seconds later is normal on ChatGPT because the conversation DOM may mount lazily.
 
-In the popup, enable Debug logs for detailed refresh logs, or click Copy debug to copy the current structured status snapshot. The debug snapshot includes URL, settings, role counts, scroll target, panel dimensions, and errors; it does not include chat text.
+In the popup, enable Lens, toggle the viewport border, enable Debug logs for detailed refresh logs, or click Copy debug to copy the current structured status snapshot. Lens excerpts are temporary local UI only; the debug snapshot includes URL, settings, role counts, scroll target, panel dimensions, and errors, but no chat text.
 
 ## Verification
 
@@ -139,17 +142,17 @@ In the popup, enable Debug logs for detailed refresh logs, or click Copy debug t
 node --check src\content.js
 node --check src\popup.js
 node --check src\background.js
-node --check scripts\verify-preview.cjs
-node scripts\verify-preview.cjs
+node --check demo_preview\demo.js
 git diff --check
 ```
 
-`scripts\verify-preview.cjs` verifies:
+The local preview page is useful for manually checking:
 
 - Glance DOM completeness.
 - Panel placement beside the scroll container.
-- `empty` state for assistant-only pages.
-- Automatic recovery to `ready` after delayed user message insertion.
+- Lens hover preview placement and hide behavior.
+- Marks / viewport border toggling.
+- Demo language switching.
 - User-message-only rendering.
 - Scroll-area reservation when there is no pre-existing right-side column, so the native scrollbar stays to the left of Glance.
 
