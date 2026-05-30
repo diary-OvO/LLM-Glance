@@ -752,13 +752,10 @@
             min-width: 0;
             overflow: hidden;
             border-left: 1px solid var(--llmg-line);
-            background:
-              radial-gradient(140% 55% at 100% 0%, var(--llmg-panel-glow), transparent 62%),
-              radial-gradient(140% 60% at 0% 100%, var(--llmg-panel-glow), transparent 64%),
-              linear-gradient(180deg, var(--llmg-panel-top), var(--llmg-panel));
-            backdrop-filter: blur(20px) saturate(1.4);
-            -webkit-backdrop-filter: blur(20px) saturate(1.4);
-            box-shadow: var(--llmg-shadow);
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            box-shadow: none;
             cursor: pointer;
             touch-action: none;
             user-select: none;
@@ -1298,10 +1295,7 @@
     }
 
     paintPanelBackground(ctx, width, height) {
-      ctx.fillStyle = this.contextTheme.lineSoft;
-      for (let y = 40; y < height; y += 40) {
-        ctx.fillRect(8, y, width - 16, 1);
-      }
+      // Keep the minimap backing fully transparent so the page background shows through.
     }
 
     paintUserBlocks(ctx, width) {
@@ -1316,17 +1310,11 @@
           continue;
         }
 
-        const isActive = this.rangesIntersect(
-          block.top * this.scale,
-          (block.top + block.height) * this.scale,
-          this.viewportStart,
-          this.viewportStart + this.viewportHeight
-        );
         const blockY = clamp(y, -6, this.drawHeight + 6);
         const blockHeight = Math.min(Math.max(3, h), this.drawHeight - blockY + 8);
 
-        ctx.globalAlpha = isActive ? 0.92 : 0.74;
-        ctx.fillStyle = isActive ? this.contextTheme.user : this.contextTheme.userSoft;
+        ctx.globalAlpha = 0.84;
+        ctx.fillStyle = this.contextTheme.user;
         this.roundedRect(ctx, laneX, blockY, laneWidth, blockHeight, Math.min(4, blockHeight / 2));
         ctx.fill();
 
@@ -1335,10 +1323,6 @@
         ctx.fillRect(width - 4, Math.max(0, blockY), 2, Math.max(2, Math.min(blockHeight, this.drawHeight - blockY)));
       }
       ctx.globalAlpha = 1;
-    }
-
-    rangesIntersect(aStart, aEnd, bStart, bEnd) {
-      return aEnd >= bStart && aStart <= bEnd;
     }
 
     getViewportPanelTop() {
