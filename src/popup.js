@@ -103,6 +103,7 @@ const controls = {
 let currentTabId = null;
 let isSupportedPage = false;
 let isSaving = false;
+let hasPendingSave = false;
 let currentLocaleSetting = DEFAULT_SETTINGS.locale;
 let lastStatusDetail = null;
 
@@ -258,14 +259,22 @@ async function loadSettings() {
 
 async function saveSettings() {
   if (isSaving) {
+    hasPendingSave = true;
     return;
   }
 
   isSaving = true;
-  const settings = readForm();
-  await chrome.storage.local.set({ [STORAGE_KEY]: settings });
-  await sendToTab({ type: "LLMG_SETTINGS_UPDATED", settings });
-  isSaving = false;
+  hasPendingSave = true;
+  try {
+    while (hasPendingSave) {
+      hasPendingSave = false;
+      const settings = readForm();
+      await chrome.storage.local.set({ [STORAGE_KEY]: settings });
+      await sendToTab({ type: "LLMG_SETTINGS_UPDATED", settings });
+    }
+  } finally {
+    isSaving = false;
+  }
 }
 
 async function refreshStatus() {

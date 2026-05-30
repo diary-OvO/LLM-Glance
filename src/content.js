@@ -447,11 +447,14 @@
       document.querySelector('[role="main"]')
     ].filter(Boolean);
 
-    let best = document.scrollingElement || document.documentElement;
-    let bestScore = getScrollCandidateScore(best);
+    const scoredCandidates = candidates.map((candidate) => ({
+      candidate,
+      score: getScrollCandidateScore(candidate)
+    }));
+    let best = scoredCandidates[0]?.candidate || document.scrollingElement || document.documentElement;
+    let bestScore = scoredCandidates[0]?.score ?? getScrollCandidateScore(best);
 
-    for (const candidate of candidates) {
-      const score = getScrollCandidateScore(candidate);
+    for (const { candidate, score } of scoredCandidates) {
       if (score > bestScore) {
         best = candidate;
         bestScore = score;
@@ -461,9 +464,9 @@
     logger.debugEvent("scroll_candidates_scored", {
       selected: describeElement(best),
       selectedScore: bestScore,
-      candidates: candidates.slice(0, 12).map((candidate) => ({
+      candidates: scoredCandidates.slice(0, 12).map(({ candidate, score }) => ({
         target: describeElement(candidate),
-        score: getScrollCandidateScore(candidate),
+        score,
         scrollTop: Math.round(getScrollTop(candidate)),
         clientHeight: Math.round(getClientHeight(candidate)),
         scrollHeight: Math.round(getScrollHeight(candidate)),
@@ -476,21 +479,30 @@
     return best;
   }
 
-  function getRelativeBox(element, scrollTarget) {
-    const rect = element.getBoundingClientRect();
-
+  function createRelativeBoxResolver(scrollTarget) {
+    const scrollTop = getScrollTop(scrollTarget);
     if (isDocumentScroller(scrollTarget)) {
-      return {
-        top: rect.top + getScrollTop(scrollTarget),
-        height: Math.max(rect.height, 24)
+      return (element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          top: rect.top + scrollTop,
+          height: Math.max(rect.height, 24)
+        };
       };
     }
 
     const containerRect = scrollTarget.getBoundingClientRect();
-    return {
-      top: rect.top - containerRect.top + getScrollTop(scrollTarget),
-      height: Math.max(rect.height, 24)
+    return (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top - containerRect.top + scrollTop,
+        height: Math.max(rect.height, 24)
+      };
     };
+  }
+
+  function getRelativeBox(element, scrollTarget) {
+    return createRelativeBoxResolver(scrollTarget)(element);
   }
 
   function isVisibleElement(element) {
@@ -517,70 +529,89 @@
       return findScrollContainer();
     }
 
-    getUserMessages(scrollTarget) {
+    getConversationModel(scrollTarget) {
       const nodes = this.findMessageNodes();
-      const scrollHeight = Math.max(1, getScrollHeight(scrollTarget));
-
-      const blocks = nodes.map((node, index) => {
-        if (this.extractRole(node, index) !== "user") {
-          return null;
-        }
-
-        const text = (node.textContent || "").replace(/\s+/g, " ").trim();
-        if (!text) {
-          return null;
-        }
-
-        const box = getRelativeBox(node, scrollTarget);
-        return {
-          id: `llmg-user-${index}-${Math.round(box.top)}`,
-          element: node,
-          top: box.top,
-          height: box.height,
-          ratioStart: clamp(box.top / scrollHeight, 0, 1),
-          ratioEnd: clamp((box.top + box.height) / scrollHeight, 0, 1)
-        };
-      }).filter(Boolean);
-
-      this.lastScan = {
-        ...collectRoleStats(),
-        messageNodeCount: nodes.length,
-        userBlockCount: blocks.length
-      };
-
-      return blocks;
-    }
-
-    getConversationContentHeight(scrollTarget) {
       const scrollHeight = Math.max(1, getScrollHeight(scrollTarget));
       const visibleHeight = Math.max(1, getClientHeight(scrollTarget));
-      if (scrollHeight > visibleHeight + 1) {
-        return scrollHeight;
-      }
-
-      const nodes = this.findMessageNodes();
+      const resolveBox = createRelativeBoxResolver(scrollTarget);
+      const userBlocks = [];
+      const messageBlocks = [];
+      const roleStats = {
+        roleCount: 0,
+        userCount: 0,
+        assistantCount: 0,
+        otherRoleCount: 0
+      };
       let contentBottom = 0;
-      for (const node of nodes) {
-        const box = getRelativeBox(node, scrollTarget);
+
+      nodes.forEach((node, index) => {
+        const text = (node.textContent || "").replace(/\s+/g, " ").trim();
+        if (!text) {
+          return;
+        }
+
+        const role = this.extractRole(node, index);
+        const box = resolveBox(node);
         contentBottom = Math.max(contentBottom, box.top + box.height);
-      }
+        roleStats.roleCount += 1;
+        if (role === "user") {
+          roleStats.userCount += 1;
+        } else if (role === "assistant") {
+          roleStats.assistantCount += 1;
+        } else {
+          roleStats.otherRoleCount += 1;
+        }
 
-      return Math.max(1, contentBottom || scrollHeight);
-    }
-
-    getMessagePreviews(scrollTarget) {
-      return this.findMessageNodes().map((node, index) => {
-        const box = getRelativeBox(node, scrollTarget);
-        return {
+        const messageBlock = {
           id: `llmg-message-${index}-${Math.round(box.top)}`,
           index: index + 1,
-          role: this.extractRole(node, index),
+          role,
           element: node,
-          text: (node.textContent || "").replace(/\s+/g, " ").trim(),
+          text,
           top: box.top,
           height: box.height
         };
-      }).filter((block) => block.text);
+        messageBlocks.push(messageBlock);
+
+        if (role === "user") {
+          userBlocks.push({
+            id: `llmg-user-${index}-${Math.round(box.top)}`,
+            element: node,
+            top: box.top,
+            height: box.height,
+            ratioStart: clamp(box.top / scrollHeight, 0, 1),
+            ratioEnd: clamp((box.top + box.height) / scrollHeight, 0, 1)
+          });
+        }
+      });
+
+      const contentHeight = scrollHeight > visibleHeight + 1
+        ? scrollHeight
+        : Math.max(1, contentBottom || scrollHeight);
+      this.lastScan = {
+        ...roleStats,
+        messageNodeCount: nodes.length,
+        userBlockCount: userBlocks.length
+      };
+
+      return {
+        userBlocks,
+        messageBlocks,
+        contentHeight,
+        scanStats: this.getDebugStats()
+      };
+    }
+
+    getUserMessages(scrollTarget) {
+      return this.getConversationModel(scrollTarget).userBlocks;
+    }
+
+    getConversationContentHeight(scrollTarget) {
+      return this.getConversationModel(scrollTarget).contentHeight;
+    }
+
+    getMessagePreviews(scrollTarget) {
+      return this.getConversationModel(scrollTarget).messageBlocks;
     }
 
     getDebugStats() {
@@ -680,6 +711,11 @@
       this.host = null;
       this.shadow = null;
       this.canvas = null;
+      this.canvasContext = null;
+      this.canvasPixelWidth = 0;
+      this.canvasPixelHeight = 0;
+      this.canvasCssWidth = 0;
+      this.canvasCssHeight = 0;
       this.viewport = null;
       this.messageLens = null;
       this.lensTitle = null;
@@ -690,6 +726,7 @@
       this.panelWidth = DENSITY_WIDTH.comfortable;
       this.customWidth = 0;
       this.scale = 0.08;
+      this.contentHeight = 0;
       this.documentHeight = 1;
       this.drawHeight = 1;
       this.visibleStart = 0;
@@ -711,9 +748,11 @@
       this.mountedAt = performance.now();
       this.scrollListenerTarget = null;
       this.layoutReservation = null;
+      this.lastPanelBounds = null;
       this.guideReservations = new Map();
       this.guideOffset = 0;
       this.guideObserver = null;
+      this.guideRaf = 0;
       this.lastGuideScan = {
         candidateCount: 0,
         matchedCount: 0
@@ -1064,16 +1103,23 @@
           scrollTarget: getScrollTargetInfo(this.scrollTarget)
         });
         this.updateScrollListener();
-        this.userBlocks = this.adapter.getUserMessages(this.scrollTarget);
-        this.messageBlocks = this.adapter.getMessagePreviews
-          ? this.adapter.getMessagePreviews(this.scrollTarget)
-          : [];
-        this.scanStats = this.adapter.getDebugStats();
+        const model = this.adapter.getConversationModel
+          ? this.adapter.getConversationModel(this.scrollTarget)
+          : {
+              userBlocks: this.adapter.getUserMessages(this.scrollTarget),
+              messageBlocks: this.adapter.getMessagePreviews ? this.adapter.getMessagePreviews(this.scrollTarget) : [],
+              contentHeight: getScrollHeight(this.scrollTarget),
+              scanStats: this.adapter.getDebugStats()
+            };
+        this.userBlocks = model.userBlocks;
+        this.messageBlocks = model.messageBlocks;
+        this.contentHeight = model.contentHeight;
+        this.scanStats = model.scanStats;
         this.modelStatus = this.userBlocks.length ? "ready" : "empty";
         this.lastError = "";
-        this.syncDebugAttributes();
         this.updateDimensions();
         this.draw();
+        this.syncDebugAttributes();
         const snapshot = this.getStatusSnapshot();
         logger.log("message_scan_done", snapshot, "info");
         logger.log(this.modelStatus === "ready" ? "model_ready" : "model_empty", snapshot, "info");
@@ -1125,6 +1171,7 @@
     updateDimensions() {
       this.panelWidth = this.customWidth || this.calculateWidth();
       const bounds = this.calculatePanelBounds(this.panelWidth);
+      this.lastPanelBounds = bounds;
       this.reserveLayoutSpace(this.panelWidth, bounds);
       this.syncGuideAvoidance(this.panelWidth, bounds);
       this.host.style.setProperty("--llmg-width", `${this.panelWidth}px`);
@@ -1132,7 +1179,6 @@
       this.host.style.setProperty("--llmg-bottom", `${bounds.bottom}px`);
       this.host.style.setProperty("--llmg-left", bounds.left === null ? "auto" : `${bounds.left}px`);
       this.host.style.setProperty("--llmg-right", bounds.right === null ? "auto" : `${bounds.right}px`);
-      this.syncDebugAttributes();
     }
 
     syncDebugAttributes() {
@@ -1140,18 +1186,17 @@
         return;
       }
 
-      const snapshot = this.getStatusSnapshot();
       this.host.dataset.llmgRenderMode = "user-only";
-      this.host.dataset.llmgStatus = snapshot.modelStatus;
-      this.host.dataset.llmgLastError = snapshot.lastError;
-      this.host.dataset.llmgUserBlockCount = String(snapshot.blockCount);
-      this.host.dataset.llmgRoleCount = String(snapshot.roleStats.roleCount);
-      this.host.dataset.llmgUserRoleCount = String(snapshot.roleStats.userCount);
-      this.host.dataset.llmgAssistantRoleCount = String(snapshot.roleStats.assistantCount);
+      this.host.dataset.llmgStatus = this.modelStatus;
+      this.host.dataset.llmgLastError = this.lastError;
+      this.host.dataset.llmgUserBlockCount = String(this.userBlocks.length);
+      this.host.dataset.llmgRoleCount = String(this.scanStats.roleCount || 0);
+      this.host.dataset.llmgUserRoleCount = String(this.scanStats.userCount || 0);
+      this.host.dataset.llmgAssistantRoleCount = String(this.scanStats.assistantCount || 0);
       this.host.dataset.llmgPanelWidth = String(Math.round(this.panelWidth));
-      this.host.dataset.llmgScrollHeight = String(snapshot.scrollTarget.scrollHeight);
+      this.host.dataset.llmgScrollHeight = String(Math.round(getScrollHeight(this.scrollTarget)));
       this.host.dataset.llmgViewportHeight = String(Math.round(this.viewportHeight));
-      this.host.dataset.llmgScrollTarget = snapshot.scrollTarget.target;
+      this.host.dataset.llmgScrollTarget = describeElement(this.scrollTarget);
     }
 
     getStatusSnapshot() {
@@ -1239,9 +1284,7 @@
       const maxHeight = this.getMaxPanelHeight(topOffset);
       const visibleHeight = Math.max(getClientHeight(this.scrollTarget), 1);
       const scrollHeight = getScrollHeight(this.scrollTarget);
-      const contentHeight = this.adapter.getConversationContentHeight
-        ? this.adapter.getConversationContentHeight(this.scrollTarget)
-        : scrollHeight;
+      const contentHeight = Math.max(1, this.contentHeight || scrollHeight);
       const scale = VIEWPORT_FIXED_HEIGHT / visibleHeight;
       const documentHeight = Math.max(1, Math.round(contentHeight * scale));
       return Math.max(1, Math.min(maxHeight, documentHeight));
@@ -1408,13 +1451,12 @@
         return;
       }
 
-      const handleGuideMutation = debounce(() => {
-        if (!this.settings.enabled) {
+      const handleGuideMutation = debounce((mutations) => {
+        if (!this.settings.enabled || !this.hasRelevantGuideMutation(mutations)) {
           return;
         }
 
-        this.updateDimensions();
-        this.draw();
+        this.scheduleGuideAvoidance();
       }, 160);
 
       this.guideObserver = new MutationObserver(handleGuideMutation);
@@ -1423,6 +1465,47 @@
         subtree: true,
         attributes: true,
         attributeFilter: ["class", "data-toc-active"]
+      });
+    }
+
+    hasRelevantGuideMutation(mutations) {
+      for (const mutation of mutations) {
+        if (mutation.type === "attributes" && this.mayContainGuide(mutation.target)) {
+          return true;
+        }
+
+        for (const node of mutation.addedNodes) {
+          if (this.mayContainGuide(node)) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    mayContainGuide(node) {
+      if (!(node instanceof Element)) {
+        return false;
+      }
+
+      return node.matches(".no-scrollbar, [data-toc-active], .popover, .relative.flex.items-start")
+        || Boolean(node.querySelector(".no-scrollbar, [data-toc-active], .popover, .relative.flex.items-start"));
+    }
+
+    scheduleGuideAvoidance() {
+      if (this.guideRaf) {
+        return;
+      }
+
+      this.guideRaf = window.requestAnimationFrame(() => {
+        this.guideRaf = 0;
+        if (!this.lastPanelBounds) {
+          this.updateDimensions();
+          return;
+        }
+
+        this.syncGuideAvoidance(this.panelWidth, this.lastPanelBounds);
       });
     }
 
@@ -1481,9 +1564,7 @@
       const visibleHeight = Math.max(getClientHeight(this.scrollTarget), 1);
       const scrollTop = getScrollTop(this.scrollTarget);
       const maxScroll = Math.max(0, scrollHeight - visibleHeight);
-      const contentHeight = this.adapter.getConversationContentHeight
-        ? this.adapter.getConversationContentHeight(this.scrollTarget)
-        : scrollHeight;
+      const contentHeight = Math.max(1, this.contentHeight || scrollHeight);
 
       this.scale = VIEWPORT_FIXED_HEIGHT / visibleHeight;
       this.documentHeight = Math.max(1, Math.round(contentHeight * this.scale));
@@ -1538,20 +1619,35 @@
         const panelHeight = Math.max(1, Math.round(rect.height));
         this.computeScrollState(panelWidth, panelHeight);
 
-        this.canvas.width = Math.round(panelWidth * dpr);
-        this.canvas.height = Math.round(panelHeight * dpr);
-        this.canvas.style.width = `${panelWidth}px`;
-        this.canvas.style.height = `${panelHeight}px`;
+        const pixelWidth = Math.round(panelWidth * dpr);
+        const pixelHeight = Math.round(panelHeight * dpr);
+        if (this.canvasPixelWidth !== pixelWidth || this.canvasPixelHeight !== pixelHeight) {
+          this.canvas.width = pixelWidth;
+          this.canvas.height = pixelHeight;
+          this.canvasPixelWidth = pixelWidth;
+          this.canvasPixelHeight = pixelHeight;
+        }
+        if (this.canvasCssWidth !== panelWidth) {
+          this.canvas.style.width = `${panelWidth}px`;
+          this.canvasCssWidth = panelWidth;
+        }
+        if (this.canvasCssHeight !== panelHeight) {
+          this.canvas.style.height = `${panelHeight}px`;
+          this.canvasCssHeight = panelHeight;
+        }
 
-        const ctx = this.canvas.getContext("2d");
+        const ctx = this.canvasContext || (this.canvasContext = this.canvas.getContext("2d"));
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, panelWidth, panelHeight);
         ctx.imageSmoothingEnabled = false;
         this.paintPanelBackground(ctx, panelWidth, this.drawHeight);
         this.paintUserBlocks(ctx, panelWidth);
         this.syncViewportElement();
-        this.syncDebugAttributes();
-        logger.debugEvent("draw_done", this.getStatusSnapshot());
+        if (this.settings.debug) {
+          const snapshot = this.getStatusSnapshot();
+          this.syncDebugAttributes();
+          logger.debugEvent("draw_done", snapshot);
+        }
       } catch (error) {
         this.modelStatus = "error";
         this.lastError = safeErrorMessage(error);
